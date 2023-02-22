@@ -1,6 +1,8 @@
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken';
+import { v4 as uuid } from 'uuid';
 import { getDbConnection } from "../db";
+import { sendEmail } from '../util/sendEmail';
 
 
 export const signUpRoute ={
@@ -18,20 +20,40 @@ export const signUpRoute ={
 
         const passwordHash = await bcrypt.hash(password, 10);
 
+        ///maybe required to block below code
+        const verificationString = uuid();
+
         const startingInfo = {
             hairColor: '',
             favoriteFood: '',
             bio: '',
         };
 
+        //maybe required to block below code verificationString
         const result = await db.collection('users').insertOne({
             email,
             passwordHash,
             info:startingInfo,
             isVerified: false,
+            verificationString,
         });
 
         const { insertedId } = result;
+        //maybe required to block below code
+        try{
+            await sendEmail({
+                to: email,
+                from: 'anupkumar4u@gmail.com',
+                subject: 'Please verify your email',
+                text: `
+                    Thanks for singing up! To verify your email click here:
+                    http://localhost:3000/verify-email/${verificationString}
+                `,
+            });
+        } catch (e) {
+            console.log(e);
+            res.sendStatus(500);
+        }
 
         jwt.sign({
             id: insertedId,
